@@ -1,0 +1,21 @@
+"types": ["vite/client", "class-variance-authority/types"]
+cat << 'EOF' > tsconfig.json
+{
+  "compilerOptions": { 
+    "target": "ESNext",
+    "module": "ESNext",
+    "strict": false,
+    "skipLibCheck": true,   
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@hooks/*": ["./src/hooks/*"]
+    },
+    "types": ["vite/client"],
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "allowJs": true
+
+^G Get Help    ^O WriteOut    ^
