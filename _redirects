@@ -1,0 +1,2 @@
+# Redirect root to www (or vice versa)
+https://luvlang.org/* https://www.luvlang.org/:splat 301
