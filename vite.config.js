@@ -1,3 +1,12 @@
 import { vitePlugin as remix } from "@remix-run/dev";
+import { installGlobals } from "@remix-run/node";
 import { defineConfig } from "vite";
-export default defineConfig({ plugins: [remix()] });
+
+installGlobals();
+
+export default defineConfig({
+  plugins: [remix()],
+  build: {
+    assetsInlineLimit: 0  # Required for Netlify asset handling
+  }
+});

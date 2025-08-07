@@ -1,10 +1,9 @@
 [build]
-command = "npm run build"
-publish = "dist/client"
+  command = "npm run build"
+  publish = "build/client"
+  functions = "build/server"
+  edge_functions = "build/edge-functions"  # Optional: Only if using edge functions
 
 [build.environment]
-NODE_VERSION = "22.18.0"
-NODE_OPTIONS = "--max_old_space_size=4096"
-
-[[plugins]]
-package = "@netlify/plugin-nextjs"
+  NODE_VERSION = "18"  # Netlify defaults to Node 16, which can cause issues
+  NPM_FLAGS = "--legacy-peer-deps"
