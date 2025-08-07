@@ -1,10 +1,10 @@
 [build]
-  command = "npm run build"
-  publish = "dist/client"
-  environment = { NODE_VERSION = "22.18.0" }
+command = "npm run build"
+publish = "dist/client"
 
 [build.environment]
-  NODE_OPTIONS = "--max_old_space_size=4096"
+NODE_VERSION = "22.18.0"
+NODE_OPTIONS = "--max_old_space_size=4096"
 
 [[plugins]]
-  package = "@netlify/plugin-nextjs"
+package = "@netlify/plugin-nextjs"

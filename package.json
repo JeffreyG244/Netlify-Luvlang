@@ -1,20 +1,16 @@
 {
-  "name": "luvlang",
-  "private": true,
+  "type": "module",
   "scripts": {
     "build": "remix vite:build",
-    "dev": "remix vite:dev",
-    "postinstall": "remix setup node"
-  },
-  "engines": {
-    "node": ">=22.18.0"
+    "dev": "remix vite:dev"
   },
   "dependencies": {
-    "@netlify/plugin-nextjs": "5.12.0",
-    "@remix-run/node": "2.17.0",
-    "@remix-run/react": "2.17.0",
-    "@remix-run/serve": "2.17.0",
-    "@vitejs/plugin-react": "4.7.0",
+    "@remix-run/dev": "^2.17.0",
+    "@remix-run/node": "^2.8.0",
+    "@remix-run/react": "^2.8.0",
+    "@remix-run/serve": "^2.8.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "isbot": "^4",
     "vite": "^7.1.0"
   }
 }
