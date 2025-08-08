@@ -1,6 +1,5 @@
 {
   "type": "module",
-  "type": "module",
   "scripts": {
     "build": "remix vite:build",
     "dev": "remix vite:dev --port 5174 --host"

@@ -7,6 +7,6 @@ installGlobals();
 export default defineConfig({
   plugins: [remix()],
   build: {
-    assetsInlineLimit: 0  # Required for Netlify asset handling
+    assetsInlineLimit: 0  // Required for Netlify asset handling
   }
 });
