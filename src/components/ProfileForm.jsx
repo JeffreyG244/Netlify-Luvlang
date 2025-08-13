@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,119 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { profileFormConfig } from "@/data/profileFormData";
+import { supabase } from '../lib/supabase';
+import { User, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const ProfileForm = () => {
   const [formData, setFormData] = useState({});
   const [currentSection, setCurrentSection] = useState(0);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
+
+  // Load user and profile data on component mount
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        return;
+      }
+      
+      if (!user) {
+        console.log('No authenticated user found');
+        setLoading(false);
+        return;
+      }
+      
+      setUser(user);
+      
+      // Load existing profile data
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error loading profile:', profileError);
+      } else if (profile) {
+        // Map database fields to form fields
+        const mappedData = {
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          industry: profile.job_title,
+          location: profile.location,
+          // Add other mappings as needed
+          ...profile.profile_data // If we store extended data as JSON
+        };
+        setFormData(mappedData);
+      }
+      
+    } catch (error) {
+      console.error('Error in loadUserProfile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!user) {
+      alert('Please log in to save your profile');
+      return;
+    }
+    
+    try {
+      setSaving(true);
+      setSaveStatus(null);
+      
+      // Prepare profile data for database
+      const profileData = {
+        id: user.id,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        age: formData.age ? parseInt(formData.age) : null,
+        job_title: formData.industry,
+        location: formData.location,
+        bio: `${formData.successLevel || 'Professional'} in ${formData.industry || 'various fields'}`,
+        profile_complete: true,
+        profile_data: formData, // Store all form data as JSON for extended fields
+        updated_at: new Date().toISOString()
+      };
+      
+      // Upsert profile (insert or update)
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert(profileData, { 
+          onConflict: 'id',
+          returning: 'minimal'
+        });
+      
+      if (error) {
+        throw error;
+      }
+      
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus(null), 3000);
+      
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setSaveStatus('error');
+      alert(`Failed to save profile: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleInputChange = (fieldId, value) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
@@ -117,9 +226,70 @@ const ProfileForm = () => {
 
   const currentSectionData = profileFormConfig.sections[currentSection];
 
+  // Show loading spinner while loading user data
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 flex items-center justify-center">
+        <Card className="bg-white/5 border-white/10 p-8 text-center">
+          <div className="space-y-4">
+            <div className="w-16 h-16 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto" />
+            <h2 className="text-xl font-semibold text-white">Loading Your Profile...</h2>
+            <p className="text-purple-300">Fetching your information securely</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show authentication required if no user
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 flex items-center justify-center">
+        <Card className="bg-white/5 border-white/10 p-8 text-center max-w-md">
+          <div className="space-y-4">
+            <User className="w-16 h-16 text-purple-400 mx-auto" />
+            <h2 className="text-xl font-semibold text-white">Authentication Required</h2>
+            <p className="text-purple-300">Please log in to access your profile settings</p>
+            <Button 
+              onClick={() => window.location.href = '/auth'}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 p-8">
       <div className="max-w-4xl mx-auto">
+        {/* Header with User Info */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Executive Profile Setup</h1>
+          <p className="text-purple-200">Welcome {user.email} - Let's build your professional profile</p>
+          
+          {/* Save Status */}
+          {saveStatus && (
+            <div className={`mt-4 p-3 rounded-lg flex items-center justify-center space-x-2 ${
+              saveStatus === 'success' ? 'bg-green-500/20 border border-green-400/30' : 'bg-red-500/20 border border-red-400/30'
+            }`}>
+              {saveStatus === 'success' ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  <span className="text-green-300">Profile saved successfully!</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <span className="text-red-300">Error saving profile. Please try again.</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Section Navigation */}
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2">
@@ -164,20 +334,42 @@ const ProfileForm = () => {
             Previous
           </Button>
           
-          <Button
-            onClick={() => {
-              if (currentSection === profileFormConfig.sections.length - 1) {
-                console.log('Final Form Data:', formData);
-                // Send to your N8N workflow here
-                alert('Profile completed! Check console for data.');
-              } else {
-                setCurrentSection(prev => prev + 1);
-              }
-            }}
-            className="bg-purple-500 hover:bg-purple-600 text-white"
-          >
-            {currentSection === profileFormConfig.sections.length - 1 ? 'Complete Profile' : 'Next'}
-          </Button>
+          <div className="flex space-x-4">
+            {/* Save Button */}
+            <Button
+              onClick={saveProfile}
+              disabled={saving}
+              variant="outline"
+              className="border-green-400/50 text-green-300 hover:bg-green-500/20"
+            >
+              {saving ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Save className="w-4 h-4" />
+                  <span>Save Progress</span>
+                </div>
+              )}
+            </Button>
+            
+            {/* Next/Complete Button */}
+            <Button
+              onClick={() => {
+                if (currentSection === profileFormConfig.sections.length - 1) {
+                  // Save profile when completing
+                  saveProfile();
+                } else {
+                  setCurrentSection(prev => prev + 1);
+                }
+              }}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              {currentSection === profileFormConfig.sections.length - 1 ? 'Complete Profile' : 'Next'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

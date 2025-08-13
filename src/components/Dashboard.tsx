@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import MessagingInterface from './Messages/MessagingInterface';
 import ProfileForm from './ProfileForm';
 import SecurityDashboard from './SecurityDashboard';
+import { supabase } from '../lib/supabase';
 import { User, MessageCircle, Settings, Shield, Heart, Users } from 'lucide-react';
 
 const Dashboard = () => {
@@ -117,50 +118,171 @@ const Dashboard = () => {
 
 // Matches View Component
 const MatchesView = () => {
-  const matches = [
-    { id: 1, name: 'Alexandra Chen', age: 32, title: 'Tech CEO', company: 'InnovateCorp', location: 'San Francisco', image: '👩‍💼' },
-    { id: 2, name: 'Victoria Sterling', age: 29, title: 'Investment Director', company: 'Goldman Sachs', location: 'New York', image: '👩‍💻' },
-    { id: 3, name: 'Isabella Rodriguez', age: 35, title: 'Surgeon', company: 'Mayo Clinic', location: 'Rochester', image: '👩‍⚕️' },
-    { id: 4, name: 'Sophia Williams', age: 31, title: 'Partner', company: 'McKinsey & Co', location: 'Chicago', image: '👩‍🎓' }
-  ];
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState('');
+
+  useEffect(() => {
+    loadMatches();
+  }, []);
+
+  const loadMatches = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user and their profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Load user's profile to get their location
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('location, age, job_title')
+        .eq('id', user.id)
+        .single();
+
+      const userLoc = profile?.location || 'San Francisco, CA'; // Default location
+      setUserLocation(userLoc);
+
+      // Import seed profiles and filter by location
+      const { getProfilesByLocation, getProfilesByAgeRange } = await import('../data/seedProfiles');
+      
+      let filteredMatches = getProfilesByLocation(userLoc);
+      
+      // If user has age preferences, filter by age
+      if (profile?.age) {
+        const minAge = Math.max(25, profile.age - 8);
+        const maxAge = Math.min(65, profile.age + 8);
+        filteredMatches = getProfilesByAgeRange(filteredMatches, minAge, maxAge);
+      }
+
+      // Format for display and limit to 8 profiles
+      const formattedMatches = filteredMatches.slice(0, 8).map(match => ({
+        id: match.id,
+        name: `${match.first_name} ${match.last_name}`,
+        age: match.age,
+        title: match.job_title,
+        company: match.company,
+        location: match.location,
+        image: match.profile_image_url,
+        bio: match.bio,
+        interests: match.interests,
+        membershipType: match.membership_type
+      }));
+
+      setMatches(formattedMatches);
+      
+    } catch (error) {
+      console.error('Error loading matches:', error);
+      // Fallback to default matches if there's an error
+      setMatches([
+        { id: 1, name: 'Alexandra Chen', age: 32, title: 'VP of Product', company: 'Meta', location: 'San Francisco, CA', image: '👩‍💼', membershipType: 'premium' },
+        { id: 2, name: 'Marcus Rodriguez', age: 35, title: 'Venture Partner', company: 'Andreessen Horowitz', location: 'Palo Alto, CA', image: '👨‍💼', membershipType: 'premium' }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-white mb-2">Loading Your Matches...</h2>
+          <p className="text-purple-200">Finding professionals in your area</p>
+        </div>
+        <div className="flex justify-center">
+          <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-3xl font-bold text-white mb-2">Your Premium Matches</h2>
-        <p className="text-purple-200">High-caliber professionals who share your ambitions</p>
+        <p className="text-purple-200">
+          High-caliber professionals {userLocation && `in ${userLocation.split(',')[0]}`} who share your ambitions
+        </p>
+        {matches.length > 0 && (
+          <p className="text-purple-300 text-sm mt-2">
+            Showing {matches.length} executive-level professionals near you
+          </p>
+        )}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {matches.map((match) => (
-          <Card key={match.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-200 cursor-pointer group">
-            <CardContent className="p-6">
-              <div className="text-center space-y-4">
-                <div className="text-6xl">{match.image}</div>
-                <div>
-                  <h3 className="text-xl font-semibold text-white">{match.name}</h3>
-                  <p className="text-purple-200 text-sm">Age {match.age}</p>
+      {matches.length === 0 ? (
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="p-8 text-center">
+            <Heart className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">No Matches Yet</h3>
+            <p className="text-purple-200 mb-4">
+              Complete your profile to start discovering amazing professionals in your area
+            </p>
+            <Button className="bg-purple-500 hover:bg-purple-600 text-white">
+              Complete Profile
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {matches.map((match) => (
+            <Card key={match.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-200 cursor-pointer group">
+              <CardContent className="p-6">
+                <div className="text-center space-y-4">
+                  <div className="relative">
+                    <div className="text-6xl">{match.image}</div>
+                    {match.membershipType === 'executive' && (
+                      <Badge className="absolute -top-2 -right-2 bg-amber-500/20 text-amber-300 border-amber-400/30 text-xs">
+                        ⭐ Executive
+                      </Badge>
+                    )}
+                    {match.membershipType === 'premium' && (
+                      <Badge className="absolute -top-2 -right-2 bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">
+                        💎 Premium
+                      </Badge>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">{match.name}</h3>
+                    <p className="text-purple-200 text-sm">Age {match.age}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-white font-medium">{match.title}</p>
+                    <p className="text-purple-300 text-sm">{match.company}</p>
+                    <p className="text-purple-400 text-xs">{match.location}</p>
+                  </div>
+                  {match.bio && (
+                    <p className="text-purple-200 text-xs line-clamp-2 px-2">
+                      {match.bio.length > 80 ? `${match.bio.substring(0, 80)}...` : match.bio}
+                    </p>
+                  )}
+                  {match.interests && (
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {match.interests.slice(0, 3).map((interest, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs border-purple-400/30 text-purple-300">
+                          {interest}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex space-x-2">
+                    <Button size="sm" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white flex-1">
+                      <Heart className="w-4 h-4 mr-1" />
+                      Like
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-white/20 text-purple-200 hover:bg-white/10 flex-1">
+                      <MessageCircle className="w-4 h-4 mr-1" />
+                      Message
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-white font-medium">{match.title}</p>
-                  <p className="text-purple-300 text-sm">{match.company}</p>
-                  <p className="text-purple-400 text-xs">{match.location}</p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button size="sm" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white flex-1">
-                    <Heart className="w-4 h-4 mr-1" />
-                    Like
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-white/20 text-purple-200 hover:bg-white/10 flex-1">
-                    <MessageCircle className="w-4 h-4 mr-1" />
-                    Message
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
