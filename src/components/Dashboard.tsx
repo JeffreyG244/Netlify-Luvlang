@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import MessagingInterface from './Messages/MessagingInterface';
 import ProfileForm from './ProfileForm';
 import SecurityDashboard from './SecurityDashboard';
-import FeatureTest from './FeatureTest';
-import { User, MessageCircle, Settings, Shield, Heart, Users, TestTube } from 'lucide-react';
+import { User, MessageCircle, Settings, Shield, Heart, Users } from 'lucide-react';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('matches');
@@ -23,8 +22,7 @@ const Dashboard = () => {
     { id: 'connections', label: 'Connections', icon: Users, count: userStats.connections },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'test', label: 'Test Features', icon: TestTube }
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   const renderTabContent = () => {
@@ -41,8 +39,6 @@ const Dashboard = () => {
         return <SecurityDashboard />;
       case 'settings':
         return <SettingsView />;
-      case 'test':
-        return <FeatureTest />;
       default:
         return <MatchesView />;
     }
