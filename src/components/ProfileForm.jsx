@@ -82,17 +82,69 @@ const ProfileForm = () => {
       setSaving(true);
       setSaveStatus(null);
       
-      // Prepare profile data for database
+      // Prepare comprehensive profile data for database and N8N matching
       const profileData = {
         id: user.id,
         first_name: formData.firstName,
         last_name: formData.lastName,
         age: formData.age ? parseInt(formData.age) : null,
         job_title: formData.industry,
+        company: formData.company || 'Professional Services',
         location: formData.location,
-        bio: `${formData.successLevel || 'Professional'} in ${formData.industry || 'various fields'}`,
+        bio: formData.bio || `${formData.successLevel || 'Professional'} in ${formData.industry || 'various fields'}. ${formData.personalityType ? `MBTI: ${formData.personalityType}. ` : ''}${formData.coreValues ? `Values: ${formData.coreValues.slice(0,3).join(', ')}.` : ''}`,
+        interests: formData.weekendActivities || [],
+        education: formData.education || `${formData.successLevel} background`,
+        membership_type: 'premium', // All new users get premium
         profile_complete: true,
-        profile_data: formData, // Store all form data as JSON for extended fields
+        is_active: true,
+        profile_data: {
+          // Core demographics for N8N
+          age: formData.age,
+          location: formData.location,
+          successLevel: formData.successLevel,
+          lifestyleLevel: formData.lifestyleLevel,
+          industry: formData.industry,
+          
+          // Psychology for compatibility
+          personalityType: formData.personalityType,
+          attachmentStyle: formData.attachmentStyle,
+          loveLanguage: formData.loveLanguage,
+          conflictResolution: formData.conflictResolution,
+          communicationStyle: formData.communicationStyle,
+          
+          // Dating preferences for matching
+          sexualOrientation: formData.sexualOrientation,
+          relationshipStyle: formData.relationshipStyle,
+          interestedIn: formData.interestedIn,
+          datingIntentions: formData.datingIntentions,
+          dealBreakers: formData.dealBreakers,
+          preferredAgeMin: formData.preferredAgeMin,
+          preferredAgeMax: formData.preferredAgeMax,
+          distancePreference: formData.distancePreference,
+          
+          // Values and lifestyle for deep matching
+          politicalViews: formData.politicalViews,
+          religiousViews: formData.religiousViews,
+          familyPlans: formData.familyPlans,
+          livingArrangement: formData.livingArrangement,
+          coreValues: formData.coreValues,
+          languages: formData.languages,
+          
+          // Interests and activities
+          weekendActivities: formData.weekendActivities,
+          culturalInterests: formData.culturalInterests,
+          intellectualPursuits: formData.intellectualPursuits,
+          vacationStyle: formData.vacationStyle,
+          
+          // Timestamps for N8N workflows
+          profileCreatedAt: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          
+          // Matching optimization flags
+          readyForMatching: true,
+          dataCompleteness: Object.keys(formData).length,
+          priorityLevel: formData.successLevel === 'business-owner' || formData.successLevel === 'investor' ? 'high' : 'standard'
+        },
         updated_at: new Date().toISOString()
       };
       
@@ -106,6 +158,48 @@ const ProfileForm = () => {
       
       if (error) {
         throw error;
+      }
+      
+      // Trigger N8N matching workflow for new complete profiles
+      try {
+        const webhookUrl = 'https://luvlang.org/webhook/luvlang-match';
+        const matchingData = {
+          user_id: user.id,
+          email: user.email,
+          profile_complete: true,
+          matching_data: {
+            age: profileData.age,
+            location: profileData.location,
+            industry: profileData.job_title,
+            success_level: formData.successLevel,
+            personality_type: formData.personalityType,
+            interests: formData.weekendActivities,
+            dating_intentions: formData.datingIntentions,
+            preferred_age_range: {
+              min: formData.preferredAgeMin,
+              max: formData.preferredAgeMax
+            },
+            distance_preference: formData.distancePreference,
+            values: formData.coreValues,
+            lifestyle_level: formData.lifestyleLevel,
+            ready_for_matching: true,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        // Send to N8N workflow (non-blocking)
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(matchingData)
+        }).catch(err => {
+          console.log('N8N webhook notification sent (or attempted):', err.message);
+        });
+        
+      } catch (webhookError) {
+        console.log('N8N webhook trigger attempted:', webhookError.message);
       }
       
       setSaveStatus('success');

@@ -144,16 +144,81 @@ const MatchesView = () => {
       const userLoc = profile?.location || 'San Francisco, CA'; // Default location
       setUserLocation(userLoc);
 
-      // Import seed profiles and filter by location
-      const { getProfilesByLocation, getProfilesByAgeRange } = await import('../data/seedProfiles');
+      // Try to get profiles from database first (real seed data)
+      const { data: dbProfiles, error: dbError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('is_active', true)
+        .neq('id', user.id) // Don't show user their own profile
+        .limit(12);
       
-      let filteredMatches = getProfilesByLocation(userLoc);
+      let allProfiles = [];
       
-      // If user has age preferences, filter by age
-      if (profile?.age) {
-        const minAge = Math.max(25, profile.age - 8);
-        const maxAge = Math.min(65, profile.age + 8);
-        filteredMatches = getProfilesByAgeRange(filteredMatches, minAge, maxAge);
+      if (dbProfiles && dbProfiles.length > 0) {
+        // Use database profiles
+        allProfiles = dbProfiles.map(profile => ({
+          id: profile.id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          age: profile.age,
+          location: profile.location,
+          job_title: profile.job_title,
+          company: profile.company,
+          bio: profile.bio,
+          interests: profile.interests,
+          membership_type: profile.membership_type,
+          profile_image_url: '👤' // Default avatar
+        }));
+      } else {
+        // Fallback to static seed profiles
+        const { default: seedProfiles } = await import('../data/seedProfiles');
+        allProfiles = seedProfiles;
+      }
+
+      // Smart filtering with fallbacks
+      let filteredMatches = allProfiles;
+      
+      // First try location-based filtering
+      if (userLoc) {
+        const locationFiltered = allProfiles.filter(profile => {
+          const profileLocation = profile.location?.toLowerCase() || '';
+          const userLocation = userLoc.toLowerCase();
+          
+          // Extract city and state
+          const userCity = userLocation.split(',')[0]?.trim();
+          const userState = userLocation.split(',')[1]?.trim();
+          
+          return profileLocation.includes(userCity) || 
+                 profileLocation.includes(userState) ||
+                 profileLocation.includes(userLocation);
+        });
+        
+        if (locationFiltered.length >= 3) {
+          filteredMatches = locationFiltered;
+        }
+      }
+      
+      // Age-based filtering with broader range if needed
+      if (profile?.age && filteredMatches.length > 6) {
+        const minAge = Math.max(25, profile.age - 10);
+        const maxAge = Math.min(65, profile.age + 10);
+        const ageFiltered = filteredMatches.filter(match => 
+          match.age >= minAge && match.age <= maxAge
+        );
+        
+        if (ageFiltered.length >= 3) {
+          filteredMatches = ageFiltered;
+        }
+      }
+
+      // Always ensure minimum of 6 profiles
+      if (filteredMatches.length < 6) {
+        // Add more profiles from different locations to reach minimum
+        const remaining = allProfiles.filter(p => 
+          !filteredMatches.some(fm => fm.id === p.id)
+        ).slice(0, 6 - filteredMatches.length);
+        
+        filteredMatches = [...filteredMatches, ...remaining];
       }
 
       // Format for display and limit to 8 profiles
