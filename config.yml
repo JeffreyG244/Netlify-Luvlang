@@ -1,0 +1,8 @@
+tunnel: 13e46a11-56ac-42c0-8750-5555785aaa66
+credentials-file: /Users/jeffreygraves/.cloudflared/13e46a11-56ac-42c0-8750-5555785aaa66.json
+
+ingress:
+  - hostname: luvlang.org
+    service: http://localhost:5678
+  - service: http_status:404
+
